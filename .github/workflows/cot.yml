@@ -34,3 +34,4 @@ jobs:
           git diff --cached --quiet && { echo "nessuna modifica"; exit 0; }
           git commit -m "dati: $JOB $(date -u +%FT%TZ)"
           for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && exit 0; sleep $((RANDOM % 10 + 3)); done; exit 1
+# schedule refresh 2026-10-30T08:38:50Z
