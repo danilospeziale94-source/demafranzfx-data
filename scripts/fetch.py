@@ -6,6 +6,9 @@ from dfx_crypto import write
 
 UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
 ROME = ZoneInfo("Europe/Rome")
+# id fonte -> nome mostrato (la fonte stessa e' esclusa)
+BROKERS = {"amarkets": "AMarkets", "dukscopy": "Dukascopy", "ftroanda": "Oanda", "fxblue": "FXBlue", "instfor": "InstaForex",
+           "myfxbook": "Myfxbook", "xm": "XM", "fxcm": "IG", "fiboforx": "FiboGroup"}
 
 def get(url, headers=None, tries=3):
     for i in range(tries):
@@ -20,7 +23,7 @@ def sentiment():
     d = get("https://fxssi.com/api/current-ratios?user_id=0&rand=%d" % int(time.time()),
             {"Referer": "https://fxssi.com/tools/current-ratio", "X-Requested-With": "XMLHttpRequest"})
     if not d or not d.get("pairs"): raise SystemExit("sentiment non disponibile")
-    pairs = {}
+    pairs, brokers = {}, {}
     for sym, v in d["pairs"].items():
         try: avg = float(v.get("average"))
         except Exception:
@@ -28,7 +31,13 @@ def sentiment():
             if not vals: continue
             avg = sum(vals) / len(vals)
         pairs[sym] = round(avg, 1)
-    write("sentiment", {"pairs": pairs})
+        bl = []
+        for k, x in v.items():
+            if k in ("average", "fxssi") or k not in BROKERS or x in (None, ""): continue
+            try: bl.append([BROKERS[k], round(float(x), 1)])
+            except Exception: pass
+        if bl: brokers[sym] = sorted(bl, key=lambda b: -b[1])
+    write("sentiment", {"pairs": pairs, "brokers": brokers})
 
 def cot():
     where = urllib.parse.quote("market_and_exchange_names='GOLD - COMMODITY EXCHANGE INC.'")
