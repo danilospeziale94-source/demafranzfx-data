@@ -1,0 +1,56 @@
+name: Live
+# Loop continuo: aggiorna News+Sentiment ogni ~60s, COT venerdi 21:30 Europe/Rome.
+# Ogni run dura ~5h50m e poi rilancia se stesso (workflow_dispatch via GITHUB_TOKEN).
+# Il cron orario e' solo un "watchdog": se un Live e' gia' attivo esce subito.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 * * * *'
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: dfx-live
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Watchdog
+        id: wd
+        run: |
+          n=$(gh run list -R "$GITHUB_REPOSITORY" -w live.yml -s in_progress --json databaseId -q "[.[]|select(.databaseId!=${GITHUB_RUN_ID})]|length")
+          echo "altri=$n"; [ "$n" = "0" ] && echo go=1 >> $GITHUB_OUTPUT || true
+      - uses: actions/checkout@v4
+        if: steps.wd.outputs.go == '1'
+      - uses: actions/setup-python@v5
+        if: steps.wd.outputs.go == '1'
+        with:
+          python-version: "3.12"
+      - name: Loop
+        if: steps.wd.outputs.go == '1'
+        run: |
+          pip install -q cryptography==43.0.3
+          git config user.name "dfx-bot"; git config user.email "dfx-bot@users.noreply.github.com"
+          end=$(( $(date +%s) + 350*60 )); lastcot=""
+          while [ $(date +%s) -lt $end ]; do
+            t0=$(date +%s)
+            git pull -q --rebase -X theirs origin main || true
+            python scripts/fetch.py news || echo "news errore"
+            python scripts/fetch.py sentiment || echo "sentiment errore"
+            k=$(TZ=Europe/Rome date +%u-%H:%M-%F)
+            if [[ $k == 5-21:3* && $lastcot != ${k##*-} ]]; then python scripts/fetch.py cot && lastcot=${k##*-}; fi
+            git add data
+            if ! git diff --cached --quiet; then
+              git commit -q -m "dati: live $(date -u +%FT%TZ)"
+              for i in 1 2 3; do git pull -q --rebase -X theirs origin main && git push -q && break; sleep 3; done
+            fi
+            echo "ciclo $(date -u +%T) $(( $(date +%s)-t0 ))s"
+            s=$(( 60 - ($(date +%s)-t0) )); [ $s -gt 0 ] && sleep $s
+          done
+      - name: Rilancia
+        if: always() && steps.wd.outputs.go == '1'
+        run: gh workflow run live.yml -R "$GITHUB_REPOSITORY" --ref main
