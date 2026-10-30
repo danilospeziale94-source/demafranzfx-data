@@ -3,6 +3,7 @@ import json, sys, time, datetime, urllib.request, urllib.parse
 from zoneinfo import ZoneInfo
 sys.path.insert(0, __import__("os").path.dirname(__file__))
 from dfx_crypto import write
+import explain
 
 UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36"
 ROME = ZoneInfo("Europe/Rome")
@@ -39,38 +40,55 @@ def sentiment():
         if bl: brokers[sym] = sorted(bl, key=lambda b: -b[1])
     write("sentiment", {"pairs": pairs, "brokers": brokers})
 
+COT_MKT = [  # codice CFTC, chiave, nome, tipo, valuta collegata
+    ("098662", "USD", "Indice Dollaro (DXY)", "usd", "USD"), ("099741", "EUR", "Euro", "fx", "EUR"),
+    ("096742", "GBP", "Sterlina", "fx", "GBP"), ("097741", "JPY", "Yen giapponese", "fx", "JPY"),
+    ("092741", "CHF", "Franco svizzero", "fx", "CHF"), ("090741", "CAD", "Dollaro canadese", "fx", "CAD"),
+    ("232741", "AUD", "Dollaro australiano", "fx", "AUD"), ("112741", "NZD", "Dollaro neozelandese", "fx", "NZD"),
+    ("088691", "XAU", "Oro", "comm", "XAU"), ("084691", "XAG", "Argento", "comm", "XAG"),
+    ("067651", "OIL", "Petrolio WTI", "comm", "OIL"), ("13874A", "SPX", "S&P 500", "index", "SPX"),
+    ("209742", "NDX", "Nasdaq 100", "index", "NDX"), ("124603", "DJI", "Dow Jones", "index", "DJI")]
+
 def cot():
-    where = urllib.parse.quote("market_and_exchange_names='GOLD - COMMODITY EXCHANGE INC.'")
-    rows = get("https://publicreporting.cftc.gov/resource/jun7-fc8e.json?$where=%s&$order=%s&$limit=8"
+    codes = ",".join("'%s'" % m[0] for m in COT_MKT)
+    where = urllib.parse.quote("cftc_contract_market_code in(%s)" % codes)
+    rows = get("https://publicreporting.cftc.gov/resource/jun7-fc8e.json?$where=%s&$order=%s&$limit=200"
                % (where, urllib.parse.quote("report_date_as_yyyy_mm_dd DESC")))
     if not rows: raise SystemExit("cot non disponibile")
     n = lambda r, k: float(r.get(k) or 0)
-    out, seen = [], set()
+    by = {}
     for r in rows:
-        dt = str(r.get("report_date_as_yyyy_mm_dd", ""))[:10]
-        if not dt or dt in seen: continue
-        seen.add(dt)
-        out.append({"date": dt,
+        dt = str(r.get("report_date_as_yyyy_mm_dd", ""))[:10]; c = r.get("cftc_contract_market_code")
+        lst = by.setdefault(c, [])
+        if not dt or any(x["date"] == dt for x in lst) or len(lst) >= 4: continue
+        lst.append({"date": dt,
                     "ist": int(n(r, "noncomm_positions_long_all") - n(r, "noncomm_positions_short_all")),
                     "com": int(n(r, "comm_positions_long_all") - n(r, "comm_positions_short_all")),
-                    "ret": int(n(r, "nonrept_positions_long_all") - n(r, "nonrept_positions_short_all"))})
-    write("cot", {"market": "XAUUSD", "reports": out[:4]})
+                    "ret": int(n(r, "nonrept_positions_long_all") - n(r, "nonrept_positions_short_all")),
+                    "oi": int(n(r, "open_interest_all"))})
+    markets = [{"key": k, "name": nm, "kind": kd, "cur": cu, "info": explain.cot(nm, kd), "reports": by[c]}
+               for c, k, nm, kd, cu in COT_MKT if by.get(c)]
+    gold = next((m["reports"] for m in markets if m["key"] == "XAU"), [])
+    write("cot", {"market": "XAUUSD", "reports": gold, "markets": markets})
 
+CURS = ("USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY")
 def news():
     items = []
     ff = get("https://nfs.faireconomy.media/ff_calendar_thisweek.json")
     for x in ff or []:
-        if str(x.get("country", "")).upper() != "USD": continue
+        cur = str(x.get("country", "")).upper()
+        if cur not in CURS: continue
         imp = str(x.get("impact", "")).lower()
         if imp not in ("high", "medium"): continue
-        items.append({"title": x.get("title", ""), "date": datetime.datetime.fromisoformat(x["date"]).astimezone(datetime.timezone.utc).isoformat(),
+        t = x.get("title", "")
+        items.append({"title": t, "cur": cur, "date": datetime.datetime.fromisoformat(x["date"]).astimezone(datetime.timezone.utc).isoformat(),
                       "impact": "high" if imp == "high" else "medium", "forecast": x.get("forecast", ""),
-                      "previous": x.get("previous", ""), "actual": x.get("actual", "") or ""})
-    # FXEmpire: valori "actual" piu' rapidi (best effort)
+                      "previous": x.get("previous", ""), "actual": x.get("actual", "") or "", "info": explain.news(t, cur)})
+    # FXEmpire: valori "actual" piu' rapidi per USD (best effort)
     now = datetime.datetime.now(ROME); mon = (now - datetime.timedelta(days=now.weekday())).date()
     fx = get("https://www.fxempire.com/api/v1/en/economic-calendar?dateFrom=%s&dateTo=%s&country=united-states"
              % (mon.isoformat(), (mon + datetime.timedelta(days=6)).isoformat()), {"Referer": "https://www.fxempire.com/economic-calendar"}, tries=1)
-    idx = {(i["date"][:16], i["title"].lower()): i for i in items}
+    idx = {(i["date"][:16], i["title"].lower()): i for i in items if i["cur"] == "USD"}
     for day in (fx or {}).get("calendar", []) if isinstance(fx, dict) else []:
         for e in day.get("events", []):
             imp = int(e.get("impact") or 0)
@@ -83,8 +101,9 @@ def news():
             if hit:
                 if act and not hit["actual"]: hit["actual"] = act
             elif ff is None:
-                items.append({"title": e["name"], "date": dt.isoformat(), "impact": "high" if imp >= 3 else "medium",
-                              "forecast": str(e.get("forecast") or ""), "previous": str(e.get("previous") or ""), "actual": act})
+                items.append({"title": e["name"], "cur": "USD", "date": dt.isoformat(), "impact": "high" if imp >= 3 else "medium",
+                              "forecast": str(e.get("forecast") or ""), "previous": str(e.get("previous") or ""), "actual": act,
+                              "info": explain.news(e["name"], "USD")})
     if ff is None and not items: raise SystemExit("news non disponibili")
     items.sort(key=lambda i: i["date"])
     write("news", {"week_start": mon.isoformat(), "items": items})
