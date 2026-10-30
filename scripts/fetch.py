@@ -39,6 +39,9 @@ def sentiment():
             except Exception: pass
         if bl: brokers[sym] = sorted(bl, key=lambda b: -b[1])
     write("sentiment", {"pairs": pairs, "brokers": brokers})
+    try:
+        import history; history.update(pairs)
+    except SystemExit as e: print("storico:", e)
 
 COT_MKT = [  # codice CFTC, chiave, nome, tipo, valuta collegata
     ("098662", "USD", "Indice Dollaro (DXY)", "usd", "USD"), ("099741", "EUR", "Euro", "fx", "EUR"),

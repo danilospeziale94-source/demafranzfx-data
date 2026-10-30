@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
+      DFX_HIST_KEY: ${{ secrets.DFX_HIST_KEY }}
       JOB: all
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +26,7 @@ jobs:
       - name: Commit
         run: |
           git config user.name "dfx-bot"; git config user.email "dfx-bot@users.noreply.github.com"
-          git add data
+          git add data state
           git diff --cached --quiet && { echo "nessuna modifica"; exit 0; }
           git commit -m "dati: $JOB $(date -u +%FT%TZ)"
           for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && exit 0; sleep $((RANDOM % 10 + 3)); done; exit 1
