@@ -1,0 +1,14 @@
+{
+ "v": 1,
+ "licenses": [
+  {
+   "id": "ab5496b7c53eff70b122b3ef0c76cd3bca55e3e305a4b0b1c046e8289d7534d7",
+   "pub": "q/v7h5PFMi0T86zmYaxpySHDvwbpMXk/mMIoXWn1ohY=",
+   "expires": "2027-10-29",
+   "status": "active",
+   "note": "Danilo test",
+   "created": "2026-10-29"
+  }
+ ],
+ "updated": "2026-10-29T22:57:43+00:00"
+}

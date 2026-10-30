@@ -1,0 +1,27 @@
+name: Pubblica APK
+# Il connettore GitHub carica solo testo: l'APK arriva in base64 a pezzi in release/ con release/release.json
+on:
+  push:
+    branches: [main]
+    paths: ["release/release.json"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ricostruisci e pubblica
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(python3 -c "import json;print(json.load(open('release/release.json'))['version'])")
+          N=$(python3 -c "import json;print(json.load(open('release/release.json'))['notes'])")
+          SHA=$(python3 -c "import json;print(json.load(open('release/release.json'))['sha256'])")
+          cat $(ls release/apk.b64.* | sort) | base64 -d > DemafranzFX.apk
+          echo "$SHA  DemafranzFX.apk" | sha256sum -c -
+          cp DemafranzFX.apk DemafranzFX-v$V.apk
+          gh release create "v$V" DemafranzFX.apk DemafranzFX-v$V.apk --title "DemafranzFX v$V" --notes "$N" --latest
+          git config user.name "dfx-bot"; git config user.email "dfx-bot@users.noreply.github.com"
+          git rm -q release/apk.b64.* && git commit -m "pulizia base64 v$V" && git pull --rebase origin main && git push
