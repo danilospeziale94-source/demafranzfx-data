@@ -8,6 +8,14 @@
    "status": "active",
    "note": "Danilo test",
    "created": "2026-10-29"
+  },
+  {
+   "id": "aa946e02ce58c206af8883d6e2bbb2a14fd1aaa5625c9e72e7653a8ac53c46e4",
+   "pub": "p8k7aEA+oIo5fF0/o+rkYRG8T2dYk10S0Xb/sPFELhk=",
+   "expires": "2099-12-31",
+   "status": "active",
+   "note": "Cloudflare Worker",
+   "created": "2026-11-01"
   }
  ],
  "updated": "2026-10-29T22:57:43+00:00"
