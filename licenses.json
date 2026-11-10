@@ -16,7 +16,15 @@
    "status": "active",
    "note": "Cloudflare Worker",
    "created": "2026-11-01"
+  },
+  {
+   "id": "8e321fef5de9f80592e0ecb788af2d0e075382c68770714e535610848f499891",
+   "pub": "OdBiOV0jzhERmF8iSwkXDwB8qAM2LLttMOB4FV0doGs=",
+   "expires": "2026-12-10",
+   "status": "active",
+   "note": "Cliente da assegnare - 1 mese (creato 2026-11-10)",
+   "created": "2026-11-10"
   }
  ],
- "updated": "2026-10-29T22:57:43+00:00"
+ "updated": "2026-11-10T08:06:14+00:00"
 }
