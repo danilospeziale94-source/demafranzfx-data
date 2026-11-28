@@ -1,0 +1,35 @@
+name: Extra - Indice COT
+# Sezione aggiuntiva DemafranzFX: workflow separato, non tocca i workflow esistenti (Sentiment, News, COT, Live, Ricifra, APK).
+# Scrive SOLO data/cot_index.json, cifrato con scripts/dfx_crypto.py come gli altri dati.
+on:
+  schedule:
+    # CFTC esce il venerdi alle 21:30 italiane: stessi orari del COT esistente, 5-10 minuti dopo.
+    - cron: '42 19 * * 5'
+    - cron: '42 20 * * 5'
+    - cron: '52 21 * * 5'
+    - cron: '37 23 * * 5'
+    - cron: '7 12 * * 1,2,3'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: dfx-extra-cot_index
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q cryptography==43.0.3
+      - run: python scripts/extra/cot_indice.py
+      - name: Commit
+        run: |
+          git config user.name "dfx-bot"; git config user.email "dfx-bot@users.noreply.github.com"
+          git add data/cot_index.json
+          git diff --cached --quiet && { echo "nessuna modifica"; exit 0; }
+          git commit -m "dati: cot_index $(date -u +%FT%TZ)"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && exit 0; sleep $((RANDOM % 10 + 3)); done; exit 1

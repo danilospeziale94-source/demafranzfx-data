@@ -1,0 +1,31 @@
+name: Extra - Tecnici
+# Sezione aggiuntiva DemafranzFX: workflow separato, non tocca i workflow esistenti (Sentiment, News, COT, Live, Ricifra, APK).
+# Scrive SOLO data/technicals.json, cifrato con scripts/dfx_crypto.py come gli altri dati.
+on:
+  schedule:
+    - cron: '17 * * * 1-5'
+    - cron: '17 9,21 * * 0,6'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: dfx-extra-technicals
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q cryptography==43.0.3
+      - run: python scripts/extra/mercati.py tecnici
+      - name: Commit
+        run: |
+          git config user.name "dfx-bot"; git config user.email "dfx-bot@users.noreply.github.com"
+          git add data/technicals.json
+          git diff --cached --quiet && { echo "nessuna modifica"; exit 0; }
+          git commit -m "dati: technicals $(date -u +%FT%TZ)"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push && exit 0; sleep $((RANDOM % 10 + 3)); done; exit 1
