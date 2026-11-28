@@ -1,6 +1,6 @@
 """Uso: python scripts/extra/mercati.py tecnici|stagionalita
 tecnici      -> data/technicals.json   (RSI 14, stocastico, medie mobili, MACD, sintesi tecnica)
-stagionalita -> data/seasonality.json  (percorso medio annuale e tabella mensile su 5/10/15 anni)
+stagionalita -> data/seasonality.json  (percorso medio annuale e tabella mensile su 1/3/5/10/15 anni)
 Indicatori calcolati da DemafranzFX su chiusure giornaliere pubbliche."""
 import sys, time
 from collections import defaultdict
@@ -150,7 +150,7 @@ def stag(mid, nome, grp, sym):
     if idx[-1] != 366: idx.append(366)
     avg, tab = {}, {}
     mr = mensili(rows)
-    for w in (5, 10, 15):
+    for w in (1, 3, 5, 10, 15):
         ys = full[-w:]
         if len(ys) < w: continue
         avg[str(w)] = {"y": [ys[0], ys[-1]], "p": [round(mean(P[y]["arr"][i] for y in ys), 2) for i in idx]}
