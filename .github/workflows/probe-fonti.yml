@@ -1,0 +1,28 @@
+name: Probe fonti (test temporaneo)
+on:
+  push:
+    branches: [probe-fonti]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prova fonti
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) DemafranzFX/1.0"
+          SEC="DarkLiquidity Research darkliquidityTW@gmail.com"
+          t(){ code=$(curl -s -o /tmp/o -w '%{http_code}' -A "$2" --max-time 30 "$1"); echo "$code $(stat -c%s /tmp/o)B $1"; head -c 150 /tmp/o | tr -d '\n'; echo; }
+          t "https://query1.finance.yahoo.com/v8/finance/chart/GC=F?range=20y&interval=1d" "$UA"
+          t "https://query2.finance.yahoo.com/v8/finance/chart/EURUSD=X?range=2y&interval=1d" "$UA"
+          t "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=include&count=100&start=0&output=atom" "$SEC"
+          t "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/index.json" "$SEC"
+          t "https://efts.sec.gov/LATEST/search-index?q=%22form%204%22&forms=4" "$SEC"
+          t "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/2026FD.zip" "$UA"
+          t "https://raw.githubusercontent.com/KasperSK-DK/senate-ptr-data/main/data/filings.json" "$UA"
+          t "https://raw.githubusercontent.com/KasperSK-DK/senate-ptr-data/main/data/status.json" "$UA"
+          t "https://efdsearch.senate.gov/search/" "$UA"
+          t "https://publicreporting.cftc.gov/resource/jun7-fc8e.json?\$limit=2" "$UA"
+          t "https://stooq.com/q/d/l/?s=xauusd&i=d" "$UA"
+          which pdftotext || echo "pdftotext assente"
